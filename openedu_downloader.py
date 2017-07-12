@@ -51,9 +51,9 @@ def page_parser(page):
 
 def video_finder(page):
     #функция ищет все видео с темы + названия видео
-    if re.findall(r'http://.*\.mp4', page) != [] and re.findall(r'data-page-title="(.*)"', page) != []:
-        return list(zip(re.findall(r'http://.*\.mp4', page)[::2], 
-                               re.findall(r'data-page-title="(.*)"', page)))
+    if re.findall(r'http://.*?\.mp4', page) != [] and re.findall(r'data-page-title="(.*?)"', page) != []:
+        return list(zip(re.findall(r'http://.*?\.mp4', page)[::2], 
+                               re.findall(r'data-page-title="(.*?)"', page)))
     else:
         return 1
         

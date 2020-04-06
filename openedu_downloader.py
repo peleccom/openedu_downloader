@@ -55,9 +55,11 @@ def page_parser(page):
 
 def video_finder(page):
     #функция ищет все видео с темы + названия видео
-    if re.findall(r'http://.*?\.mp4', page) != [] and re.findall(r'data-page-title="(.*?)"', page) != []:
-        return list(zip(re.findall(r'http://.*?\.mp4', page)[::2], 
-                               re.findall(r'data-page-title="(.*?)"', page)))
+    video_url_pattern = r'https://video.*?\.mp4'
+    title_pattern = r'data-page-title="(.*?)"'
+    if re.findall(video_url_pattern, page) != [] and re.findall(title_pattern, page) != []:
+        return list(zip(re.findall(video_url_pattern, page)[1::],
+                               re.findall(title_pattern, page)))
     else:
         return 1
         
@@ -71,7 +73,7 @@ def main():
 
     client = authorizer_and_pagegetter(username, password)
     page = client.get(course_url).text
-    download_path += "/" + re.findall(r'<div class="course-header">\n            \n            (.*)', page)[0]
+    download_path += "/" + re.findall(r'<div class="coursename-title(.*)">(.*)</div>', page)[0][1]
     table = page_parser(page)
 
     count = 1

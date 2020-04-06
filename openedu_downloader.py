@@ -1,10 +1,9 @@
-import requests
-import re
 import os
-from itertools import groupby
-import sys
+import re
+from getpass import getpass
+
 import lxml.html as html
-import json
+import requests
 
 CHUNK_SIZE = 1048576
 

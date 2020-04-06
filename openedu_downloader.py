@@ -65,7 +65,7 @@ def video_finder(page):
 def main():
     username = input('Ваш логин или email: ')
     password = input('Ваш пароль: ')
-    course_url = input('Ссылка на курс  (на вкладку "Курс"): ')
+    course_url = input('Ссылка на курс (на вкладку "Курс") в виде URL-а на страницу: ').strip()
     download_path = re.sub(r'\\', '/', (input('Ссылка на папку  (по умолчанию, текущая папка): ')))
     if download_path == '':
         download_path = '.'

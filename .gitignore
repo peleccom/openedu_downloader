@@ -87,3 +87,11 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+# Intellij IDEA
+/*.iml
+/*.ipr
+/*.iws
+/*.ids
+/*.sh
+/.idea

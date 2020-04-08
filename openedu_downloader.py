@@ -1,6 +1,5 @@
 import os
 import re
-from getpass import getpass
 
 import lxml.html as html
 import requests
@@ -52,16 +51,19 @@ def page_parser(page):
         modules[modul_name]=lst
     return modules
 
-def video_finder(page):
-    #функция ищет все видео с темы + названия видео
+def content_finder(page):
+    #функция ищет все видео с темы + названия видео, а так же ссылки на конспект лекций
     video_url_pattern = r'https://video.*?\.mp4'
     title_pattern = r'data-page-title="(.*?)"'
+    summary_pattern = r'href=&#34;(.*)&#34; .*Конспект лекции.*/a'
     if re.findall(video_url_pattern, page) != [] and re.findall(title_pattern, page) != []:
-        return list(zip(re.findall(video_url_pattern, page)[1::],
-                               re.findall(title_pattern, page)))
+        return list(zip(
+            re.findall(video_url_pattern, page)[1::],
+            re.findall(title_pattern, page),
+            re.findall(summary_pattern, page)))
     else:
         return 1
-        
+
 def main():
     username = input('Ваш логин или email: ')
     password = input('Ваш пароль: ')
@@ -70,6 +72,7 @@ def main():
     if download_path == '':
         download_path = '.'
 
+    course_domain = re.findall(r'(.*)\.ru/.*', course_url)[0] + '.ru'
     client = authorizer_and_pagegetter(username, password)
     page = client.get(course_url).text
     download_path += "/" + re.findall(r'<div class="coursename-title(.*)">(.*)</div>', page)[0][1]
@@ -81,13 +84,21 @@ def main():
         total_paths = len(table)
         print('Page {} out of {}:'.format(count, total_paths))
         for j in table[i]:
-            video_list = video_finder(client.get("https://courses.openedu.ru" + j[1]).text)
+            content_list = content_finder(client.get("https://courses.openedu.ru" + j[1]).text)
             g = 1
-            if video_list != 1:
-                length = len(video_list)
-                for x in video_list:
-                    print('[{}/{}] Downloading... {}'.format(g, length, x[0]))
-                    downloader(x[0], download_path + "/" + re.sub('[^\w_.)( -]', '', i) + "/" + "Лекция {0} ".format(g) + re.sub('[^\w_.)( -]', '', x[1]))
+            if content_list != 1:
+                length = len(content_list)
+                for content in content_list:
+                    video_url = content[0]
+                    video_name = content[1]
+                    summary_url = course_domain + '/' + content[2]
+                    chapter_name = re.sub('[^\w_.)( -]', '', i)
+                    numbered_video_name = re.sub('[^\w_.)( -]', '', video_name)
+
+                    print('[{}/{}] Downloading... {}'.format(g, length, video_url))
+                    downloader(video_url, download_path + "/" + chapter_name + "/" + "Лекция {0} ".format(g) + numbered_video_name)
+                    print('[{}/{}] Downloading... {}'.format(g, length, summary_url))
+                    downloader(summary_url, download_path + "/" + chapter_name + "/" + "Конспект {0} ".format(g) + numbered_video_name, file_type = '.pdf')
                     g += 1
         count += 1
     

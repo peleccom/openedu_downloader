@@ -7,6 +7,13 @@ from getpass import getpass
 
 CHUNK_SIZE = 1048576
 
+class OpenEduException(Exception):
+    pass
+
+class OpenEduLoginException(OpenEduException):
+    pass
+
+
 def create_folder(path, folder_name):
     #Функция создает директорию по заданному пути
     if not os.path.exists(path + "/" + re.sub('[^\w_.)( -]', '', folder_name)):
@@ -36,7 +43,10 @@ def authorizer_and_pagegetter(username, password, URL='https://sso.openedu.ru/lo
     client = requests.session()
     csrf = client.get(URL).cookies['csrftoken']
     login_data = dict(username=username, password=password, csrfmiddlewaretoken=csrf, next=next_page)
-    r = client.post(URL, data=login_data, headers=dict(Referer=URL))
+    r = client.post(URL, data=login_data, headers=dict(Referer=URL),  allow_redirects=False)
+    if r.status_code != 302:
+        # Нет редиректа. Неверный логин или пароль
+        raise OpenEduLoginException('Неверный логин или пароль')
     return client
 
 def page_parser(page):
@@ -109,5 +119,7 @@ def main():
 if __name__ == '__main__':
     try:
         main()
+    except OpenEduLoginException:
+        print('\n', 'Неверный логин или пароль')
     except:
         print('\n', 'Проверьте корректность введенных данных и наличие курса. \nТочно ссылка на вкладку "Курс"? \nВсе верно? Тогда, пожалуйста, сообщите авторам скрипта. Вы поможете сделать скрипт еще лучше.')

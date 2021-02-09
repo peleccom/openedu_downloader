@@ -3,39 +3,40 @@ import re
 
 import lxml.html as html
 import requests
+from getpass import getpass
 
 CHUNK_SIZE = 1048576
 
-def create_folder(path, folder_name): 
+def create_folder(path, folder_name):
     #Функция создает директорию по заданному пути
     if not os.path.exists(path + "/" + re.sub('[^\w_.)( -]', '', folder_name)):
         os.makedirs(path + "/" + re.sub('[^\w_.)( -]', '', folder_name))
 
-def downloader(url, name, file_type='.mp4'): 
+def downloader(url, name, file_type='.mp4'):
     #Функция осуществляет загрузку видео-файла по url, в файл name
-    name += file_type 
+    name += file_type
     r = requests.get(url, stream=True)
     if not os.path.exists(name):
         if len(name) <= 260:
-            with open(name, 'wb') as f: 
-                for chunk in r.iter_content(chunk_size=CHUNK_SIZE): 
-                    if chunk: 
+            with open(name, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=CHUNK_SIZE):
+                    if chunk:
                         f.write(chunk)
         else:
             print("\n{0}\n{1}\nИмена файлов слишком длинны для перемещения в эту целевую папку. Лекции будет присвоено имя формата 'Лекция №'".format(*list(map(list, re.findall(r'.*/(.*)/(.*)', name)))[0]) + "\n")
-            with open(re.findall(r'(.*Лекция \d*)', name)[0] + file_type, 'wb') as f: 
-                for chunk in r.iter_content(chunk_size=CHUNK_SIZE): 
-                    if chunk: 
+            with open(re.findall(r'(.*Лекция \d*)', name)[0] + file_type, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=CHUNK_SIZE):
+                    if chunk:
                         f.write(chunk)
     else:
         print('Файл '+ name + ' уже существует');
 
-def authorizer_and_pagegetter(username, password, URL='https://sso.openedu.ru/login/', next_page='/oauth2/authorize%3Fstate%3DYpbWrm0u6VoE6nOvTi47PQLaC5CB5ZFJ%26redirect_uri%3Dhttps%3A//openedu.ru/complete/npoedsso/%26response_type%3Dcode%26client_id%3D808f52636759e3616f1a%26auth_entry%3Dlogin'): 
+def authorizer_and_pagegetter(username, password, URL='https://sso.openedu.ru/login/', next_page='/oauth2/authorize%3Fstate%3DYpbWrm0u6VoE6nOvTi47PQLaC5CB5ZFJ%26redirect_uri%3Dhttps%3A//openedu.ru/complete/npoedsso/%26response_type%3Dcode%26client_id%3D808f52636759e3616f1a%26auth_entry%3Dlogin'):
     #Функция авторизуется и загружает страницу курса для парсинга. Возвращает страницу курса
     client = requests.session()
-    csrf = client.get(URL).cookies['csrftoken'] 
-    login_data = dict(username=username, password=password, csrfmiddlewaretoken=csrf, next=next_page) 
-    r = client.post(URL, data=login_data, headers=dict(Referer=URL)) 
+    csrf = client.get(URL).cookies['csrftoken']
+    login_data = dict(username=username, password=password, csrfmiddlewaretoken=csrf, next=next_page)
+    r = client.post(URL, data=login_data, headers=dict(Referer=URL))
     return client
 
 def page_parser(page):
@@ -66,7 +67,7 @@ def content_finder(page):
 
 def main():
     username = input('Ваш логин или email: ')
-    password = input('Ваш пароль: ')
+    password = getpass('Ваш пароль: ')
     course_url = input('Ссылка на курс (на вкладку "Курс") в виде URL-а на страницу: ').strip()
     download_path = re.sub(r'\\', '/', (input('Ссылка на папку  (по умолчанию, текущая папка): ')))
     if download_path == '':
@@ -101,10 +102,10 @@ def main():
                     downloader(summary_url, download_path + "/" + chapter_name + "/" + "Конспект {0} ".format(g) + numbered_video_name, file_type = '.pdf')
                     g += 1
         count += 1
-    
+
     client.close()
     print("Закачка закончена. Если были какие-то замечания или пожелания - напишите, пожалуйста, авторам скрипта.")
-    
+
 if __name__ == '__main__':
     try:
         main()

@@ -5,6 +5,8 @@ import lxml.html as html
 import requests
 from getpass import getpass
 
+from progressbar import progress
+
 CHUNK_SIZE = 1048576
 
 class OpenEduException(Exception):
@@ -24,17 +26,23 @@ def downloader(url, name, file_type='.mp4'):
     name += file_type
     r = requests.get(url, stream=True)
     if not os.path.exists(name):
+        total_length = int(r.headers.get('content-length'))
+        dl = 0
         if len(name) <= 260:
             with open(name, 'wb') as f:
                 for chunk in r.iter_content(chunk_size=CHUNK_SIZE):
+                    dl += len(chunk)
                     if chunk:
                         f.write(chunk)
+                    progress(dl, total_length)
         else:
             print("\n{0}\n{1}\nИмена файлов слишком длинны для перемещения в эту целевую папку. Лекции будет присвоено имя формата 'Лекция №'".format(*list(map(list, re.findall(r'.*/(.*)/(.*)', name)))[0]) + "\n")
             with open(re.findall(r'(.*Лекция \d*)', name)[0] + file_type, 'wb') as f:
                 for chunk in r.iter_content(chunk_size=CHUNK_SIZE):
+                    dl += len(chunk)
                     if chunk:
                         f.write(chunk)
+                    progress(dl, total_length)
     else:
         print('Файл '+ name + ' уже существует');
 

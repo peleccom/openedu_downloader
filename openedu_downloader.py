@@ -54,11 +54,14 @@ def page_parser(page):
     #первый - название урока, второй - ссылка на страницу урока
     modules = {}
     html_page = html.fromstring(page)
-    for x in html_page.find_class('chapter-content-container'):
-        modul_name = x.attrib['aria-label'][0:-8]
+    for x in html_page.find_class('outline-item section'):
+        section_titles = x.find_class('section-title')
+        if not section_titles:
+            continue
+        modul_name = section_titles[0].text
         lst=[]
-        for y in x.find_class('accordion-nav'):
-            lst.append([y.find_class('accordion-display-name')[0].text_content(),y.attrib['href']])
+        for y in x.find_class('vertical outline-item focusable'):
+            lst.append([y.find_class('vertical-title')[0].text_content().strip(),y.find_class('outline-item')[1].attrib['href']])
         modules[modul_name]=lst
     return modules
 
@@ -71,7 +74,9 @@ def content_finder(page):
         return list(zip(
             re.findall(video_url_pattern, page)[1::],
             re.findall(title_pattern, page),
-            re.findall(summary_pattern, page)))
+            # TODO uncomment
+            # re.findall(summary_pattern, page)
+        ))
     else:
         return 1
 
@@ -88,28 +93,29 @@ def main():
     page = client.get(course_url).text
     download_path += "/" + re.findall(r'<div class="coursename-title(.*)">(.*)</div>', page)[0][1]
     table = page_parser(page)
-
     count = 1
     for i in table:
         create_folder(download_path, i)
         total_paths = len(table)
         print('Page {} out of {}:'.format(count, total_paths))
         for j in table[i]:
-            content_list = content_finder(client.get("https://courses.openedu.ru" + j[1]).text)
+            content_list = content_finder(client.get(j[1]).text)
             g = 1
             if content_list != 1:
                 length = len(content_list)
                 for content in content_list:
                     video_url = content[0]
                     video_name = content[1]
-                    summary_url = course_domain + '/' + content[2]
+                    # TODO uncomment
+                    summary_url = course_domain #+ '/' + content[2]
                     chapter_name = re.sub('[^\w_.)( -]', '', i)
                     numbered_video_name = re.sub('[^\w_.)( -]', '', video_name)
 
                     print('[{}/{}] Downloading... {}'.format(g, length, video_url))
                     downloader(video_url, download_path + "/" + chapter_name + "/" + "Лекция {0} ".format(g) + numbered_video_name)
-                    print('[{}/{}] Downloading... {}'.format(g, length, summary_url))
-                    downloader(summary_url, download_path + "/" + chapter_name + "/" + "Конспект {0} ".format(g) + numbered_video_name, file_type = '.pdf')
+                    # TODO uncomment
+                    # print('[{}/{}] Downloading... {}'.format(g, length, summary_url))
+                    # downloader(summary_url, download_path + "/" + chapter_name + "/" + "Конспект {0} ".format(g) + numbered_video_name, file_type = '.pdf')
                     g += 1
         count += 1
 
@@ -121,5 +127,6 @@ if __name__ == '__main__':
         main()
     except OpenEduLoginException:
         print('\n', 'Неверный логин или пароль')
-    except:
+    except Exception:
         print('\n', 'Проверьте корректность введенных данных и наличие курса. \nТочно ссылка на вкладку "Курс"? \nВсе верно? Тогда, пожалуйста, сообщите авторам скрипта. Вы поможете сделать скрипт еще лучше.')
+        raise

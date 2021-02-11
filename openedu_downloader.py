@@ -3,6 +3,9 @@ import re
 
 import lxml.html as html
 import requests
+
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 from getpass import getpass
 from pathlib import Path
 from progressbar import progress
@@ -53,6 +56,8 @@ def downloader(url, name, file_type='.mp4'):
 def authorizer_and_pagegetter(username, password, URL='https://sso.openedu.ru/login/', next_page='/oauth2/authorize%3Fstate%3DYpbWrm0u6VoE6nOvTi47PQLaC5CB5ZFJ%26redirect_uri%3Dhttps%3A//openedu.ru/complete/npoedsso/%26response_type%3Dcode%26client_id%3D808f52636759e3616f1a%26auth_entry%3Dlogin'):
     # Функция авторизуется и загружает страницу курса для парсинга. Возвращает страницу курса
     client = requests.session()
+    retries = Retry(total=5, backoff_factor=1, status_forcelist=[ 502, 503, 504 ])
+    client.mount('https://', HTTPAdapter(max_retries=retries))
     csrf = client.get(URL).cookies['csrftoken']
     login_data = dict(username=username, password=password,
                       csrfmiddlewaretoken=csrf, next=next_page)

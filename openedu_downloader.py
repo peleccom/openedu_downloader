@@ -1,4 +1,3 @@
-import os
 import re
 
 import lxml.html as html
@@ -20,37 +19,42 @@ class OpenEduException(Exception):
 class OpenEduLoginException(OpenEduException):
     pass
 
-def get_valid_filename(s):
+def get_valid_filename_str(s):
     s = str(s).strip().replace(' ', '_')
     return re.sub(r'(?u)[^-\w.]', '', s)
 
 
 def create_folder(path, folder_name):
     # Функция создает директорию по заданному пути
-    if not os.path.exists(path + "/" + re.sub('[^\w_.)( -]', '', folder_name)):
-        os.makedirs(path + "/" + re.sub('[^\w_.)( -]', '', folder_name))
+    cleared_folder_name = re.sub('[^\w_.)( -]', '', folder_name)
+    path = (path / cleared_folder_name)
+    path.mkdir(parents=True, exist_ok=True)
 
 
-def downloader(url, name, file_type='.mp4'):
-    # Функция осуществляет загрузку видео-файла по url, в файл name
-    name += file_type
+def downloader(url, filename, file_type='.mp4'):
+    # Функция осуществляет загрузку видео-файла по url, в файл filename
+    filename = filename.with_suffix(file_type)
     r = requests.get(url, stream=True)
-    if not os.path.exists(name):
+    filename_str = str(filename.resolve())
+    if not filename.exists():
         total_length = int(r.headers.get('content-length'))
         dl = 0
-        filename = name
-        if len(name) > 260:
+        if len(filename_str) > 260:
             print("\n{0}\n{1}\nИмена файлов слишком длинны для перемещения в эту целевую папку. Лекции будет присвоено имя формата 'Лекция №'".format(
-                *list(map(list, re.findall(r'.*/(.*)/(.*)', name)))[0]) + "\n")
-            filename = re.findall(r'(.*Лекция \d*)', name)[0] + file_type
-        with open(filename, 'wb') as f:
+                *list(map(list, re.findall(r'.*/(.*)/(.*)', filename_str)))[0]) + "\n")
+            filename_str = re.findall(r'(.*Лекция \d*)', filename_str)[0] + file_type
+            filename = Path(filename_str)
+        temp_filename = filename.with_suffix('.download')
+        with temp_filename.open('wb') as f:
             for chunk in r.iter_content(chunk_size=CHUNK_SIZE):
                 dl += len(chunk)
                 if chunk:
                     f.write(chunk)
                 progress(dl, total_length)
+        temp_filename.rename(filename)
+
     else:
-        print('Файл ' + name + ' уже существует')
+        print('Файл "{}" уже существует'.format(filename))
 
 
 def authorizer_and_pagegetter(username, password, URL='https://sso.openedu.ru/login/', next_page='/oauth2/authorize%3Fstate%3DYpbWrm0u6VoE6nOvTi47PQLaC5CB5ZFJ%26redirect_uri%3Dhttps%3A//openedu.ru/complete/npoedsso/%26response_type%3Dcode%26client_id%3D808f52636759e3616f1a%26auth_entry%3Dlogin'):
@@ -119,12 +123,12 @@ def main():
     page = client.get(course_url).text
 
     course_name = re.findall(r'<div class="coursename-title(.*)">(.*)</div>', page)[0][1]
-    download_path = download_path / get_valid_filename(course_name)
+    download_path = download_path / get_valid_filename_str(course_name)
 
     table = page_parser(page)
     count = 1
     for i in table:
-        create_folder(str(download_path), i)
+        create_folder(download_path, i)
         total_paths = len(table)
         print('Page {} out of {}:'.format(count, total_paths))
         for j in table[i]:
@@ -141,8 +145,8 @@ def main():
                     numbered_video_name = re.sub('[^\w_.)( -]', '', video_name)
 
                     print('[{}/{}] Downloading... {}'.format(g, length, video_url))
-                    downloader(video_url, str(download_path) + "/" + chapter_name +
-                               "/" + "Лекция {0} ".format(g) + numbered_video_name)
+                    downloader(video_url, download_path / chapter_name /
+                               "Лекция {} {}".format(g, numbered_video_name))
                     # TODO uncomment
                     # print('[{}/{}] Downloading... {}'.format(g, length, summary_url))
                     # downloader(summary_url, str(download_path) + "/" + chapter_name + "/" + "Конспект {0} ".format(g) + numbered_video_name, file_type = '.pdf')

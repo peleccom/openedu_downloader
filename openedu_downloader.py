@@ -4,7 +4,7 @@ import re
 import lxml.html as html
 import requests
 from getpass import getpass
-
+from pathlib import Path
 from progressbar import progress
 
 CHUNK_SIZE = 1024 * 1024
@@ -16,6 +16,10 @@ class OpenEduException(Exception):
 
 class OpenEduLoginException(OpenEduException):
     pass
+
+def get_valid_filename(s):
+    s = str(s).strip().replace(' ', '_')
+    return re.sub(r'(?u)[^-\w.]', '', s)
 
 
 def create_folder(path, folder_name):
@@ -103,16 +107,19 @@ def main():
         r'\\', '/', (input('Ссылка на папку  (по умолчанию, текущая папка): ')))
     if download_path == '':
         download_path = '.'
+    download_path = Path(download_path)
 
     course_domain = re.findall(r'(.*)\.ru/.*', course_url)[0] + '.ru'
     client = authorizer_and_pagegetter(username, password)
     page = client.get(course_url).text
-    download_path += "/" + \
-        re.findall(r'<div class="coursename-title(.*)">(.*)</div>', page)[0][1]
+
+    course_name = re.findall(r'<div class="coursename-title(.*)">(.*)</div>', page)[0][1]
+    download_path = download_path / get_valid_filename(course_name)
+
     table = page_parser(page)
     count = 1
     for i in table:
-        create_folder(download_path, i)
+        create_folder(str(download_path), i)
         total_paths = len(table)
         print('Page {} out of {}:'.format(count, total_paths))
         for j in table[i]:
@@ -129,11 +136,11 @@ def main():
                     numbered_video_name = re.sub('[^\w_.)( -]', '', video_name)
 
                     print('[{}/{}] Downloading... {}'.format(g, length, video_url))
-                    downloader(video_url, download_path + "/" + chapter_name +
+                    downloader(video_url, str(download_path) + "/" + chapter_name +
                                "/" + "Лекция {0} ".format(g) + numbered_video_name)
                     # TODO uncomment
                     # print('[{}/{}] Downloading... {}'.format(g, length, summary_url))
-                    # downloader(summary_url, download_path + "/" + chapter_name + "/" + "Конспект {0} ".format(g) + numbered_video_name, file_type = '.pdf')
+                    # downloader(summary_url, str(download_path) + "/" + chapter_name + "/" + "Конспект {0} ".format(g) + numbered_video_name, file_type = '.pdf')
                     g += 1
         count += 1
 

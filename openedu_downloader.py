@@ -23,7 +23,7 @@ class OpenEduLoginException(OpenEduException):
 def get_valid_filename_str(s):
     """Убирает запрещенные символы из имени файла"""
     s = str(s).strip()
-    return re.sub(r'(?u)[^-\w.]', '', s)
+    return re.sub(r'(?u)[^-\s\w.]', '', s)
 
 
 def create_folder(path, folder_name):
@@ -39,7 +39,7 @@ def downloader(url, filename, file_type='.mp4'):
     r = requests.get(url, stream=True)
     filename_str = str(filename.resolve())
     if not filename.exists():
-        total_length = int(r.headers.get('content-length'))
+        total_length = int(r.headers.get('content-length') or 0)
         dl = 0
         if len(filename_str) > 260:
             print("\n{0}\n{1}\nИмена файлов слишком длинны для перемещения в эту целевую папку. Лекции будет присвоено имя формата 'Лекция №'".format(
@@ -53,7 +53,8 @@ def downloader(url, filename, file_type='.mp4'):
                 dl += len(chunk)
                 if chunk:
                     f.write(chunk)
-                progress(dl, total_length)
+                if total_length:
+                    progress(dl, total_length)
         temp_filename.rename(filename)
 
     else:
@@ -104,18 +105,38 @@ def page_parser(page):
 
 def content_finder(page):
     """функция ищет все видео с темы + названия видео, а так же ссылки на конспект лекций"""
+    ALLOWED_DOWNLOADS = ['.pdf']
     video_url_pattern = r'https://video.*?\.mp4'
-    title_pattern = r'data-page-title="(.*?)"'
-    summary_pattern = r'href=&#34;(.*)&#34; .*Конспект лекции.*/a'
-    if re.findall(video_url_pattern, page) != [] and re.findall(title_pattern, page) != []:
-        return list(zip(
-            re.findall(video_url_pattern, page)[1::],
-            re.findall(title_pattern, page),
-            # TODO uncomment
-            # re.findall(summary_pattern, page)
-        ))
-    else:
-        return 1
+    contents = []
+
+    html_page = html.fromstring(page)
+    seq_content_elements = html_page.find_class('seq_contents')
+    for seq_content_element in seq_content_elements:
+        seq_content_element_text = seq_content_element.text_content()
+        lesson_content_element = html.fromstring(seq_content_element_text)
+        unit_titles = lesson_content_element.find_class('unit-title')
+        if not unit_titles:
+            continue
+        lesson_title = unit_titles[0].text_content()
+        videos = re.findall(video_url_pattern, seq_content_element_text)
+        downloadable_links = [
+            {'title': a_tag.text_content().strip(),
+             'path': a_tag.attrib['href']}
+            for a_tag in lesson_content_element.findall('.//a')
+        ]
+        downloads = []
+        for extension in ALLOWED_DOWNLOADS:
+            for downloadable_link in downloadable_links:
+                if downloadable_link['path'].endswith(extension):
+                    downloads.append(downloadable_link)
+        # TODO: uniq items + select quiality
+        if videos:
+            contents.append((
+                lesson_title,
+                videos[1],
+                downloads,
+            ))
+    return contents
 
 
 def main():
@@ -139,30 +160,31 @@ def main():
 
     table = page_parser(page)
     count = 1
+    modules_count = len(table)
     for module_name in table:
         create_folder(course_download_path, module_name)
-        total_paths = len(table)
-        print('Page {} out of {}:'.format(count, total_paths))
-        for j in table[module_name]:
-            content_list = content_finder(client.get(j[1]).text)
+        print('Page {} out of {}:'.format(count, modules_count))
+        for lesson in table[module_name]:
+            content_list = content_finder(client.get(lesson[1]).text)
             g = 1
-            if content_list != 1:
-                length = len(content_list)
-                for content in content_list:
-                    video_url = content[0]
-                    video_name = content[1]
-                    # TODO uncomment
-                    summary_url = course_domain  # + '/' + content[2]
-                    chapter_name = re.sub('[^\w_.)( -]', '', module_name)
-                    numbered_video_name = re.sub('[^\w_.)( -]', '', video_name)
+            length = len(content_list)
+            for content in content_list:
+                video_url = content[1]
+                video_name = content[0]
+                downloadable_links = content[2]
+                chapter_name = re.sub('[^\w_.)( -]', '', module_name)
+                numbered_video_name = re.sub('[^\w_.)( -]', '', video_name)
 
-                    print('[{}/{}] Downloading... {}'.format(g, length, video_url))
-                    downloader(video_url, course_download_path / chapter_name /
-                               "Лекция {} {}".format(g, numbered_video_name))
-                    # TODO uncomment
-                    # print('[{}/{}] Downloading... {}'.format(g, length, summary_url))
-                    # downloader(summary_url, str(download_path) + "/" + chapter_name + "/" + "Конспект {0} ".format(g) + numbered_video_name, file_type = '.pdf')
-                    g += 1
+                print('[{}/{}] Downloading... {}'.format(g, length, video_url))
+                downloader(video_url, course_download_path / chapter_name
+                           / "Лекция {} {}".format(g, numbered_video_name))
+                for downloadable_link in downloadable_links:
+                    summary_url = course_domain + \
+                        '/' + downloadable_link['path']
+                    print('[{}/{}] Downloading... {}'.format(g, length, summary_url))
+                    downloader(summary_url, course_download_path / chapter_name
+                               / "Конспект {} {} {}".format(g, numbered_video_name, downloadable_link['title']), file_type='.pdf')
+                g += 1
         count += 1
 
     client.close()

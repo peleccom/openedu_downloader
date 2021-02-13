@@ -35,7 +35,7 @@ def create_folder(path, folder_name):
 
 def downloader(url, filename, file_type='.mp4'):
     """Функция осуществляет загрузку видео-файла по url, в файл filename"""
-    filename = filename.with_suffix(file_type)
+    filename = Path('{}{}'.format(filename.resolve(), file_type))
     r = requests.get(url, stream=True)
     filename_str = str(filename.resolve())
     if not filename.exists():
@@ -172,9 +172,8 @@ def main():
                 video_url = content[1]
                 video_name = content[0]
                 downloadable_links = content[2]
-                chapter_name = re.sub('[^\w_.)( -]', '', module_name)
-                numbered_video_name = re.sub('[^\w_.)( -]', '', video_name)
-
+                chapter_name = get_valid_filename_str(module_name)
+                numbered_video_name = get_valid_filename_str(video_name)
                 print('[{}/{}] Downloading... {}'.format(g, length, video_url))
                 downloader(video_url, course_download_path / chapter_name
                            / "Лекция {} {}".format(g, numbered_video_name))

@@ -42,12 +42,11 @@ def downloader(url, filename, file_type='.mp4'):
         total_length = int(r.headers.get('content-length') or 0)
         dl = 0
         if len(filename_str) > 260:
-            print("\n{0}\n{1}\nИмена файлов слишком длинны для перемещения в эту целевую папку. Лекции будет присвоено имя формата 'Лекция №'".format(
-                *list(map(list, re.findall(r'.*/(.*)/(.*)', filename_str)))[0]) + "\n")
-            filename_str = re.findall(
-                r'(.*Лекция \d*)', filename_str)[0] + file_type
-            filename = Path(filename_str)
-        temp_filename = filename.with_suffix('.download')
+            print("{} Имена файлов слишком длинны для перемещения в эту целевую папку. Лекции будет присвоено имя формата 'Лекция №'".format(filename))
+            new_filename = re.findall(
+                r'.*(Лекция \d*)', filename.name)[0] + file_type
+            filename = filename.parent / new_filename
+        temp_filename = filename.with_suffix('.dl')
         with temp_filename.open('wb') as f:
             for chunk in r.iter_content(chunk_size=CHUNK_SIZE):
                 dl += len(chunk)

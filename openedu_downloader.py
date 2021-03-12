@@ -121,7 +121,7 @@ def content_finder(page):
         downloadable_links = [
             {'title': a_tag.text_content().strip(),
              'path': a_tag.attrib['href']}
-            for a_tag in lesson_content_element.findall('.//a')
+            for a_tag in lesson_content_element.findall('.//a') if 'href' in a_tag.attrib
         ]
         downloads = []
         for extension in ALLOWED_DOWNLOADS:
